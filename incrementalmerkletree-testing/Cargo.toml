@@ -18,6 +18,9 @@ all-features = true
 rustdoc-args = ["--cfg", "docsrs"]
 
 [dependencies]
+ark-ff = "0.4.1"
+ark-bls12-381 = "0.4.0"
+ark-crypto-primitives = { version = "0.4.0", default-features = true, features = ["crh", "r1cs", "merkle_tree"] }
 incrementalmerkletree = { workspace = true, features = ["test-dependencies"] }
 
 proptest.workspace = true

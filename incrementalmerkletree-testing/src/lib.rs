@@ -5,6 +5,12 @@ use core::marker::PhantomData;
 use proptest::prelude::*;
 use std::collections::BTreeSet;
 
+pub use ark_bls12_381::Fr as F;
+use ark_crypto_primitives::crh::{poseidon, CRHScheme};
+use ark_crypto_primitives::sponge::poseidon::{
+    find_poseidon_ark_and_mds, PoseidonConfig, PoseidonDefaultConfigEntry,
+};
+use ark_ff::{PrimeField, Zero};
 use incrementalmerkletree::{Hashable, Level, Marking, Position, Retention};
 
 pub mod complete_tree;
@@ -115,6 +121,76 @@ impl Hashable for SipHashable {
         hasher.write_u64(a.0);
         hasher.write_u64(b.0);
         SipHashable(hasher.finish())
+    }
+}
+
+// Generates Poseidon params for BLS12-381. This is copied from
+//     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/poseidon/traits.rs#L69
+// and
+//     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/test.rs
+pub(crate) fn gen_poseidon_params(rate: usize, optimized_for_weights: bool) -> PoseidonConfig<F> {
+    let params_set = if !optimized_for_weights {
+        [
+            PoseidonDefaultConfigEntry::new(2, 17, 8, 31, 0),
+            PoseidonDefaultConfigEntry::new(3, 5, 8, 56, 0),
+            PoseidonDefaultConfigEntry::new(4, 5, 8, 56, 0),
+            PoseidonDefaultConfigEntry::new(5, 5, 8, 57, 0),
+            PoseidonDefaultConfigEntry::new(6, 5, 8, 57, 0),
+            PoseidonDefaultConfigEntry::new(7, 5, 8, 57, 0),
+            PoseidonDefaultConfigEntry::new(8, 5, 8, 57, 0),
+        ]
+    } else {
+        [
+            PoseidonDefaultConfigEntry::new(2, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(3, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(4, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(5, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(6, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(7, 257, 8, 13, 0),
+            PoseidonDefaultConfigEntry::new(8, 257, 8, 13, 0),
+        ]
+    };
+
+    for param in params_set.iter() {
+        if param.rate == rate {
+            let (ark, mds) = find_poseidon_ark_and_mds::<F>(
+                F::MODULUS_BIT_SIZE as u64,
+                rate,
+                param.full_rounds as u64,
+                param.partial_rounds as u64,
+                param.skip_matrices as u64,
+            );
+
+            return PoseidonConfig {
+                full_rounds: param.full_rounds,
+                partial_rounds: param.partial_rounds,
+                alpha: param.alpha as u64,
+                ark,
+                mds,
+                rate: param.rate,
+                capacity: 1,
+            };
+        }
+    }
+
+    panic!("could not generate poseidon params");
+}
+
+pub fn poseidon_hash(input: &[F]) -> F {
+    let params = gen_poseidon_params(2, false);
+    poseidon::CRH::evaluate(&params, input).unwrap()
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+pub struct PHashable(pub F);
+
+impl Hashable for PHashable {
+    fn empty_leaf() -> Self {
+        PHashable(F::zero())
+    }
+
+    fn combine(_level: Level, a: &Self, b: &Self) -> Self {
+        PHashable(poseidon_hash(&[a.0, b.0]))
     }
 }
 

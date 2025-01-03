@@ -335,14 +335,14 @@ impl<H: Hashable + PartialEq + Clone, C: Ord + Clone + core::fmt::Debug, const D
 
 #[cfg(test)]
 mod tests {
-    use std::convert::TryFrom;
-
     use super::CompleteTree;
     use crate::{
         check_append, check_checkpoint_rewind, check_rewind_remove_mark, check_root_hashes,
-        check_witnesses, compute_root_from_witness, SipHashable, Tree,
+        check_witnesses, compute_root_from_witness, PHashable, SipHashable, Tree, F,
     };
+    use ark_ff::Zero;
     use incrementalmerkletree::{Hashable, Level, Position, Retention};
+    use std::convert::TryFrom;
 
     #[test]
     fn correct_empty_root() {
@@ -353,6 +353,18 @@ mod tests {
         }
 
         let tree = CompleteTree::<SipHashable, (), DEPTH>::new(100);
+        assert_eq!(tree.root(None), Some(expected));
+    }
+
+    #[test]
+    fn correct_empty_root_f() {
+        const DEPTH: u8 = 5;
+        let mut expected = PHashable(F::zero());
+        for lvl in 0u8..DEPTH {
+            expected = PHashable::combine(lvl.into(), &expected, &expected);
+        }
+
+        let tree = CompleteTree::<PHashable, (), DEPTH>::new(100);
         assert_eq!(tree.root(None), Some(expected));
     }
 
