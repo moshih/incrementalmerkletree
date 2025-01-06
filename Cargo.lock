@@ -27,6 +27,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ark-bn254"
+version = "0.4.0"
+source = "git+https://github.com/arnaucube/ark-curves-cherry-picked?branch=cherry-pick#5d56cc26308565e4a0195c2e349115d2ccf2713f"
+dependencies = [
+ "ark-ec",
+ "ark-ff",
+ "ark-r1cs-std",
+ "ark-std",
+]
+
+[[package]]
 name = "ark-crypto-primitives"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -104,6 +115,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 1.0.109",
+]
+
+[[package]]
+name = "ark-grumpkin"
+version = "0.4.0"
+source = "git+https://github.com/arnaucube/ark-curves-cherry-picked?branch=cherry-pick#5d56cc26308565e4a0195c2e349115d2ccf2713f"
+dependencies = [
+ "ark-bn254",
+ "ark-ec",
+ "ark-ff",
+ "ark-r1cs-std",
+ "ark-std",
 ]
 
 [[package]]
@@ -386,8 +409,10 @@ name = "incrementalmerkletree-testing"
 version = "0.2.0"
 dependencies = [
  "ark-bls12-381",
+ "ark-bn254",
  "ark-crypto-primitives",
  "ark-ff",
+ "ark-grumpkin",
  "incrementalmerkletree",
  "proptest",
 ]

@@ -5,7 +5,7 @@ use core::marker::PhantomData;
 use proptest::prelude::*;
 use std::collections::BTreeSet;
 
-pub use ark_bls12_381::Fr as F;
+pub use ark_bn254::Fr as F;
 use ark_crypto_primitives::crh::{poseidon, CRHScheme};
 use ark_crypto_primitives::sponge::poseidon::{
     find_poseidon_ark_and_mds, PoseidonConfig, PoseidonDefaultConfigEntry,
