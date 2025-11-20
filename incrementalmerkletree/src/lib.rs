@@ -59,6 +59,7 @@ use core::fmt;
 use core::num::TryFromIntError;
 use core::ops::{Add, AddAssign, Range, Sub};
 use either::Either;
+use serde::{Deserialize, Serialize};
 
 pub mod frontier;
 
@@ -183,7 +184,7 @@ impl Iterator for WitnessAddrsIter {
 }
 
 /// A type representing the position of a leaf in a Merkle tree.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct Position(u64);
 

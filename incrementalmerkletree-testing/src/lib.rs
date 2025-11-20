@@ -13,6 +13,10 @@ use ark_crypto_primitives::sponge::poseidon::{
 use ark_ff::{PrimeField, Zero};
 use incrementalmerkletree::{Hashable, Level, Marking, Position, Retention};
 
+use serde::{Serialize, Deserialize, Serializer, Deserializer};
+use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+
+
 pub mod complete_tree;
 
 //
@@ -105,7 +109,7 @@ pub trait Tree<H, C> {
 // Types and utilities for shared example tests.
 //
 
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct SipHashable(pub u64);
 
 impl Hashable for SipHashable {
@@ -183,6 +187,30 @@ pub fn poseidon_hash(input: &[F]) -> F {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct PHashable(pub F);
+
+impl Serialize for PHashable {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut bytes = Vec::new();
+        self.0.serialize_compressed(&mut bytes)
+            .map_err(serde::ser::Error::custom)?;
+        bytes.serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PHashable {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Vec::<u8>::deserialize(deserializer)?;
+        let field = F::deserialize_compressed(&bytes[..])
+            .map_err(serde::de::Error::custom)?;
+        Ok(PHashable(field))
+    }
+}
 
 impl Hashable for PHashable {
     fn empty_leaf() -> Self {
@@ -373,7 +401,8 @@ pub fn check_operations<H: Hashable + Ord + Clone + Debug, C: Clone, T: Tree<H, 
             CurrentPosition => {
                 if let Some(pos) = tree.current_position() {
                     prop_assert!(tree_size > 0);
-                    prop_assert_eq!(tree_size - 1, pos.try_into().unwrap());
+                    let pos_usize: usize = pos.try_into().unwrap();
+                    prop_assert_eq!(tree_size - 1, pos_usize);
                 }
             }
             MarkedLeaf(position) => {
