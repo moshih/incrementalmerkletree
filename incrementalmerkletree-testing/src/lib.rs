@@ -5,7 +5,6 @@ use core::marker::PhantomData;
 use proptest::prelude::*;
 use std::collections::BTreeSet;
 
-pub use ark_bn254::Fr as F;
 use ark_crypto_primitives::crh::{poseidon, CRHScheme};
 use ark_crypto_primitives::sponge::poseidon::{
     find_poseidon_ark_and_mds, PoseidonConfig, PoseidonDefaultConfigEntry,
@@ -18,7 +17,9 @@ use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
 
 
 pub mod complete_tree;
-
+pub mod util;
+pub mod tree_util;
+pub mod incremental_int_tree;
 //
 // Traits used to permit comparison testing between tree implementations.
 //
@@ -240,6 +241,7 @@ pub enum Operation<A, C> {
 }
 
 use Operation::*;
+use crate::util::F;
 
 pub fn append_str<C>(x: &str, retention: Retention<C>) -> Operation<String, C> {
     Operation::Append(x.to_string(), retention)

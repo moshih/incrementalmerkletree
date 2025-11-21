@@ -133,7 +133,7 @@ impl<H: Hashable, C: Clone + Ord + core::fmt::Debug, const DEPTH: u8> CompleteTr
         Ok(())
     }
 
-    fn current_position(&self) -> Option<Position> {
+    pub(crate) fn current_position(&self) -> Option<Position> {
         if self.leaves.is_empty() {
             None
         } else {
