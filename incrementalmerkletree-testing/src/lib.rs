@@ -20,6 +20,7 @@ pub mod complete_tree;
 pub mod util;
 pub mod tree_util;
 pub mod incremental_int_tree;
+pub mod incremental_complement_tree;
 //
 // Traits used to permit comparison testing between tree implementations.
 //
