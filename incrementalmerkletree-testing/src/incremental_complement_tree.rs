@@ -1,48 +1,51 @@
-use std::ops::Add;
+use crate::complete_tree::CompleteTree;
+use crate::incremental_int_tree::IncIntTree;
+use crate::tree_util::{
+    create_auth_path_inc, PoseidonTreeConfig, PoseidonTreeConfigVar, TreeParams,
+};
+use crate::util::poseidon_hash;
+use crate::{PHashable, Tree};
 use ark_crypto_primitives::merkle_tree::constraints::PathVar;
 use ark_crypto_primitives::merkle_tree::Path;
-use ark_ff::{One, Zero};
+use ark_crypto_primitives::sponge::Absorb;
+use ark_ff::{One, PrimeField, Zero};
 use ark_r1cs_std::fields::fp::FpVar;
 use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
 use incrementalmerkletree::{Position, Retention};
-use crate::complete_tree::CompleteTree;
-use crate::incremental_int_tree::IncIntTree;
-use crate::{PHashable, Tree};
-use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig, PoseidonTreeConfigVar, TreeParams};
-use crate::util::{poseidon_hash, F};
+use std::ops::Add;
 
 /// Represents the semi-open range `[a, b)`.
-pub type FpRange = (F, F);
+pub type FpRange<F: PrimeField + Absorb> = (F, F);
 /// The leaf of a range tree. This is just an `FpRange`, i.e., a semi-open range `[a, b)`.
-pub type RangeTreeLeaf = FpRange;
+pub type RangeTreeLeaf<F: PrimeField + Absorb> = FpRange<F>;
 
 /// The root of a range tree
-pub type RangeTreeRoot = F;
+pub type RangeTreeRoot<F: PrimeField + Absorb> = F;
 
 /// An authentication path representing the membership of a given range in the range tree
 #[derive(Clone, Debug, CanonicalSerialize, CanonicalDeserialize)]
-pub struct RangeTreePath {
-    pub leaf: RangeTreeLeaf,
-    pub path: Path<PoseidonTreeConfig>,
+pub struct RangeTreePath<F: PrimeField + Absorb> {
+    pub leaf: RangeTreeLeaf<F>,
+    pub path: Path<PoseidonTreeConfig<F>>,
 }
 
 // Now the ZK definitions
 
-pub type RangeTreeLeafVar = (FpVar<F>, FpVar<F>);
+pub type RangeTreeLeafVar<F: PrimeField + Absorb> = (FpVar<F>, FpVar<F>);
 
-pub type RangeTreeRootVar = FpVar<F>;
+pub type RangeTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
 
-pub struct RangeTreePathVar {
-    pub(crate) leaf: RangeTreeLeafVar,
-    pub(crate) path: PathVar<PoseidonTreeConfig, F, PoseidonTreeConfigVar>,
+pub struct RangeTreePathVar<F: PrimeField + Absorb> {
+    pub(crate) leaf: RangeTreeLeafVar<F>,
+    pub(crate) path: PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>,
 }
 #[derive(Clone)]
-pub struct IncRangeTree<const INT_TREE_DEPTH: u8> {
-    pub leaves: Vec<RangeTreeLeaf>,
-    pub merkle_tree: CompleteTree<PHashable, usize, INT_TREE_DEPTH>,
+pub struct IncRangeTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
+    pub leaves: Vec<RangeTreeLeaf<F>>,
+    pub merkle_tree: CompleteTree<PHashable<F>, usize, INT_TREE_DEPTH>,
 }
 
-impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncRangeTree<F, INT_TREE_DEPTH> {
     pub fn current_position(&self) -> Option<Position> {
         self.merkle_tree.current_position()
     }
@@ -54,14 +57,14 @@ impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
 
     /// Returns the leaf at index `idx`.
     /// **Panics:** if `idx >= self.num_leaves()`.
-    pub(crate) fn get_leaf(&self, idx: usize) -> RangeTreeLeaf {
+    pub(crate) fn get_leaf(&self, idx: usize) -> RangeTreeLeaf<F> {
         *self.leaves.get(idx).unwrap()
     }
 
     /// Makes a Merkle tree of the given height, where all the leaves are the empty interval
     /// `[0, 0)`.
     pub fn blank() -> Self {
-        let merkle_tree = CompleteTree::<PHashable, usize, INT_TREE_DEPTH>::new(100);
+        let merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
 
         IncRangeTree {
             leaves: vec![],
@@ -73,17 +76,14 @@ impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
     /// elements
     #[allow(non_snake_case)]
     pub fn new(mut fps: Vec<F>) -> Self {
-        let TreeParams {
-            leaf_params,
-            two_to_one_params,
-        } = TreeParams::new();
+        //let TreeParams = TreeParams::new();
 
         // Compute the complement set
         let mut leaves = complement_ranges(fps);
 
         // Compute the hashes and make a new tree
 
-        let mut merkle_tree = CompleteTree::<PHashable, usize, INT_TREE_DEPTH>::new(100);
+        let mut merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
 
         for entry in leaves.iter() {
             Tree::append(
@@ -114,9 +114,9 @@ impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
     /// Returns an authentication path that proves that the leaf at `idx` is in the current tree.
     /// Return value includes the leaf values themselves, so they can be range-checked later.
     /// **Panics:** if `idx >= self.num_leaves()`.
-    pub fn auth_path(&self, idx: usize) -> RangeTreePath {
+    pub fn auth_path(&self, idx: usize) -> RangeTreePath<F> {
         let position = Position::try_from(idx).unwrap();
-        let inc_path: Vec<PHashable> = self.merkle_tree.witness(position, 0).unwrap();
+        let inc_path: Vec<PHashable<F>> = self.merkle_tree.witness(position, 0).unwrap();
         let path = create_auth_path_inc(inc_path, idx);
         RangeTreePath {
             leaf: self.get_leaf(idx),
@@ -141,7 +141,7 @@ impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
         }
     }
 
-    pub fn append(&mut self, value: RangeTreeLeaf) {
+    pub fn append(&mut self, value: RangeTreeLeaf<F>) {
         self.leaves.push(value);
 
         Tree::append(
@@ -153,7 +153,7 @@ impl<const INT_TREE_DEPTH: u8> IncRangeTree<INT_TREE_DEPTH> {
 }
 
 /// Given a set of field elements, produces a set of semi-open ranges [a, b) representing the complement of the set provided
-pub fn complement_ranges(mut fps: Vec<F>) -> Vec<FpRange> {
+pub fn complement_ranges<F: PrimeField + Absorb>(mut fps: Vec<F>) -> Vec<FpRange<F>> {
     // Helpful constants
     let zero = F::zero();
     let one = F::one();

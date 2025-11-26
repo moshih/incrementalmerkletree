@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 use std::cmp::Ordering;
-pub use ark_bn254::Fr as F;
+//pub use ark_bn254::Fr as F;
 use ark_crypto_primitives::crh::{poseidon, CRHScheme, CRHSchemeGadget};
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::{BigInteger, Field, PrimeField};
@@ -20,7 +20,7 @@ use crate::gen_poseidon_params;
 
 /// Returns the little-endian byte representation of the canonical integer representitive of the
 /// given field element
-pub(crate) fn fp_to_bytes(x: F) -> Vec<u8> {
+pub(crate) fn fp_to_bytes<F: PrimeField + Absorb>(x: F) -> Vec<u8> {
     x.into_bigint().to_bytes_le()
 }
 
@@ -45,7 +45,7 @@ pub(crate) fn cond_select_power_of_two_vec<F: Field, C: CondSelectGadget<F>>(
     Ok(result)
 }
 
-pub(crate) fn fpvar_to_u64_check(
+pub(crate) fn fpvar_to_u64_check<F: PrimeField + Absorb>(
     a: &FpVar<F>,
 ) -> Result<(UInt64<F>, Boolean<F>), SynthesisError> {
     let mut a_bits: Vec<Boolean<F>> = a.to_bits_le().unwrap();
@@ -68,7 +68,7 @@ pub(crate) fn fpvar_to_u64_check(
     Ok((output, fits_u64))
 }
 
-pub(crate) fn fpvar_to_u64(a: &FpVar<F>) -> Result<UInt64<F>, SynthesisError> {
+pub(crate) fn fpvar_to_u64<F: PrimeField + Absorb>(a: &FpVar<F>) -> Result<UInt64<F>, SynthesisError> {
     let mut a_bits: Vec<Boolean<F>> = a.to_bits_le().unwrap();
     if a_bits.len() < 256 {
         let zeros = vec![Boolean::<F>::FALSE; 256 - a_bits.len()];
@@ -79,14 +79,14 @@ pub(crate) fn fpvar_to_u64(a: &FpVar<F>) -> Result<UInt64<F>, SynthesisError> {
     return Ok(output);
 }
 
-pub fn fp_to_u64(a: &F) -> u64 {
+pub fn fp_to_u64<F: PrimeField + Absorb>(a: &F) -> u64 {
     let a_bytes = a.to_sponge_bytes_as_vec();
     let a_u64 = u64::from_le_bytes(a_bytes[0..8].try_into().unwrap());
 
     return a_u64;
 }
 
-pub fn u64_to_bits_f(a: u64) -> Vec<F> {
+pub fn u64_to_bits_f<F: PrimeField + Absorb>(a: u64) -> Vec<F> {
     let bytes = a.to_le_bytes();
     let mut bit_array: Vec<u8> = Vec::new();
 
@@ -105,7 +105,7 @@ pub fn u64_to_bits_f(a: u64) -> Vec<F> {
     return field_array;
 }
 
-pub fn bits_f_to_u64(a: &[F]) -> u64 {
+pub fn bits_f_to_u64<F: PrimeField + Absorb>(a: &[F]) -> u64 {
     let mut byte_array: Vec<u8> = Vec::new();
     assert!(a.len() >= 64);
     let mut temp: u8 = 0;
@@ -123,7 +123,7 @@ pub fn bits_f_to_u64(a: &[F]) -> u64 {
     return output;
 }
 
-pub fn bytes_to_bits_f(bytes: &[u8]) -> Vec<F> {
+pub fn bytes_to_bits_f<F: PrimeField + Absorb>(bytes: &[u8]) -> Vec<F> {
     let mut bit_array: Vec<u8> = Vec::new();
 
     for byte in bytes {
@@ -141,7 +141,7 @@ pub fn bytes_to_bits_f(bytes: &[u8]) -> Vec<F> {
     return field_array;
 }
 
-pub fn bits_f_to_bytes(a: &[F]) -> Vec<u8> {
+pub fn bits_f_to_bytes<F: PrimeField + Absorb>(a: &[F]) -> Vec<u8> {
     let mut byte_array: Vec<u8> = Vec::new();
     assert!(a.len() % 8 == 0);
     let mut temp: u8 = 0;
@@ -157,7 +157,7 @@ pub fn bits_f_to_bytes(a: &[F]) -> Vec<u8> {
     return byte_array;
 }
 
-pub(crate) fn uint64_greater_than(
+pub(crate) fn uint64_greater_than<F: PrimeField + Absorb>(
     a: &UInt64<F>,
     b: &UInt64<F>,
 ) -> Result<Boolean<F>, SynthesisError> {
@@ -170,16 +170,16 @@ pub(crate) fn uint64_greater_than(
     a_fp.is_cmp(&b_fp, Ordering::Greater, false)
 }
 
-pub(crate) fn fp_greater_than(a: &FpVar<F>, b: &FpVar<F>) -> Result<Boolean<F>, SynthesisError> {
+pub(crate) fn fp_greater_than<F: PrimeField + Absorb>(a: &FpVar<F>, b: &FpVar<F>) -> Result<Boolean<F>, SynthesisError> {
     a.is_cmp(&b, Ordering::Greater, false)
 }
 
-pub fn poseidon_hash(input: &[F]) -> F {
+pub fn poseidon_hash<F: PrimeField + Absorb>(input: &[F]) -> F {
     let params = gen_poseidon_params(2, false);
     poseidon::CRH::evaluate(&params, input).unwrap()
 }
 
-pub(crate) fn poseidon_hash_zk(input: &[FpVar<F>]) -> Result<FpVar<F>, SynthesisError> {
+pub(crate) fn poseidon_hash_zk<F: PrimeField + Absorb>(input: &[FpVar<F>]) -> Result<FpVar<F>, SynthesisError> {
     let params = gen_poseidon_params(2, false);
     let params_var = poseidon::constraints::CRHParametersVar { parameters: params };
     poseidon::constraints::CRHGadget::evaluate(&params_var, input)

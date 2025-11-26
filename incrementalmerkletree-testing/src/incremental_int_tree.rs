@@ -1,29 +1,31 @@
+use crate::complete_tree::CompleteTree;
+use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig};
+use crate::util::poseidon_hash;
+use crate::{PHashable, Tree};
 use ark_crypto_primitives::merkle_tree::Path;
+use ark_crypto_primitives::sponge::Absorb;
+use ark_ff::PrimeField;
 use ark_r1cs_std::fields::fp::FpVar;
 use incrementalmerkletree::Position;
 use incrementalmerkletree::Retention;
-use crate::complete_tree::CompleteTree;
-use crate::{PHashable, Tree};
-use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig};
-use crate::util::{poseidon_hash, F};
 
 /// The root of an integer tree
-pub type IntTreeRoot = F;
+pub type IntTreeRoot<F: PrimeField + Absorb> = F;
 
 /// The authentication path in an integer tree
-pub type IntTreePath = Path<PoseidonTreeConfig>;
+pub type IntTreePath<F: PrimeField + Absorb> = Path<PoseidonTreeConfig<F>>;
 
 /// The root of an integer tree
-pub type IntTreeRootVar = FpVar<F>;
+pub type IntTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
 
 /// A Merkle tree that represents a set of integers, represented as field elements
 #[derive(Clone)]
-pub struct IncIntTree<const INT_TREE_DEPTH: u8> {
+pub struct IncIntTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
     pub leaves: Vec<F>,
-    pub merkle_tree: CompleteTree<PHashable, usize, INT_TREE_DEPTH>,
+    pub merkle_tree: CompleteTree<PHashable<F>, usize, INT_TREE_DEPTH>,
 }
 
-impl<const INT_TREE_DEPTH: u8> IncIntTree<INT_TREE_DEPTH> {
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DEPTH> {
     pub fn current_position(&self) -> Option<Position> {
         self.merkle_tree.current_position()
     }
@@ -41,7 +43,7 @@ impl<const INT_TREE_DEPTH: u8> IncIntTree<INT_TREE_DEPTH> {
 
     /// Makes a Merkle tree of the given height
     pub fn blank() -> Self {
-        let merkle_tree = CompleteTree::<PHashable, usize, INT_TREE_DEPTH>::new(100);
+        let merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
 
         IncIntTree {
             leaves: vec![],
@@ -53,7 +55,7 @@ impl<const INT_TREE_DEPTH: u8> IncIntTree<INT_TREE_DEPTH> {
     pub fn new(values: &[F]) -> Self {
         // Need to cast the ints to &[F] because that's technically the leaf type of the tree
         let leaves = values.to_vec();
-        let mut merkle_tree = CompleteTree::<PHashable, usize, INT_TREE_DEPTH>::new(100);
+        let mut merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
 
         for value in values {
             Tree::append(
@@ -71,9 +73,9 @@ impl<const INT_TREE_DEPTH: u8> IncIntTree<INT_TREE_DEPTH> {
 
     /// Returns an authentication path that proves that the leaf at `idx` is in the current tree.
     /// **Panics:** if `idx >= self.num_leaves()`.
-    pub fn auth_path(&self, idx: usize) -> IntTreePath {
+    pub fn auth_path(&self, idx: usize) -> IntTreePath<F> {
         let position = Position::try_from(idx).unwrap();
-        let path: Vec<PHashable> = self.merkle_tree.witness(position, 0).unwrap();
+        let path: Vec<PHashable<F>> = self.merkle_tree.witness(position, 0).unwrap();
         create_auth_path_inc(path, idx)
     }
 
@@ -131,6 +133,7 @@ mod tests {
     //use incrementalmerkletree_testing::complete_tree::CompleteTree;
     //use incrementalmerkletree_testing::{compute_root_from_witness, PHashable, SipHashable, Tree};
     use crate::compute_root_from_witness;
+    use ark_bn254::Fr as F;
 
     #[test]
     fn inc_int_tree_correct_empty_root_f() {
@@ -138,7 +141,7 @@ mod tests {
         const DEPTH_TO_ADD: u8 = DEPTH - 2;
 
         //let mut tree = CompleteTree::<PHashable, (), DEPTH>::new(100);
-        let mut inc_int_tree = IncIntTree::<DEPTH>::new(&[]);
+        let mut inc_int_tree = IncIntTree::<F, DEPTH>::new(&[]);
 
         let pre_root_hash = inc_int_tree.merkle_tree.root(None).unwrap().0.clone();
         println!("pre_root_hash is {:?}", pre_root_hash);
@@ -162,7 +165,7 @@ mod tests {
 
         for i in 0u64..(1 << DEPTH_TO_ADD) {
             let position = Position::try_from(i).unwrap();
-            let path: Vec<PHashable> = inc_int_tree.merkle_tree.witness(position, 0).unwrap();
+            let path: Vec<PHashable<F>> = inc_int_tree.merkle_tree.witness(position, 0).unwrap();
 
             assert_eq!(
                 compute_root_from_witness(PHashable(poseidon_hash(&[F::from(i)])), position, &path),
@@ -175,7 +178,7 @@ mod tests {
             }
             f_path.reverse();
 
-            let path_proof: Path<PoseidonTreeConfig> = Path {
+            let path_proof: Path<PoseidonTreeConfig<F>> = Path {
                 leaf_sibling_hash: path[0].0,
                 auth_path: f_path,
                 leaf_index: i as usize,

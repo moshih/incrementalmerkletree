@@ -6,6 +6,7 @@ use proptest::prelude::*;
 use std::collections::BTreeSet;
 
 use ark_crypto_primitives::crh::{poseidon, CRHScheme};
+use ark_crypto_primitives::sponge::Absorb;
 use ark_crypto_primitives::sponge::poseidon::{
     find_poseidon_ark_and_mds, PoseidonConfig, PoseidonDefaultConfigEntry,
 };
@@ -134,7 +135,7 @@ impl Hashable for SipHashable {
 //     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/poseidon/traits.rs#L69
 // and
 //     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/test.rs
-pub(crate) fn gen_poseidon_params(rate: usize, optimized_for_weights: bool) -> PoseidonConfig<F> {
+pub(crate) fn gen_poseidon_params<F: PrimeField + Absorb>(rate: usize, optimized_for_weights: bool) -> PoseidonConfig<F> {
     let params_set = if !optimized_for_weights {
         [
             PoseidonDefaultConfigEntry::new(2, 17, 8, 31, 0),
@@ -182,15 +183,18 @@ pub(crate) fn gen_poseidon_params(rate: usize, optimized_for_weights: bool) -> P
     panic!("could not generate poseidon params");
 }
 
-pub fn poseidon_hash(input: &[F]) -> F {
+pub fn poseidon_hash<F: PrimeField + Absorb>(input: &[F]) -> F {
     let params = gen_poseidon_params(2, false);
     poseidon::CRH::evaluate(&params, input).unwrap()
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PHashable(pub F);
+pub struct PHashable<F: PrimeField + Absorb>(pub F);
 
-impl Serialize for PHashable {
+impl<F> Serialize for PHashable<F>
+where
+    F: PrimeField + Absorb,
+{
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -202,7 +206,10 @@ impl Serialize for PHashable {
     }
 }
 
-impl<'de> Deserialize<'de> for PHashable {
+impl<'de, F> Deserialize<'de> for PHashable <F>
+where
+    F: PrimeField + Absorb,
+{
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -214,7 +221,10 @@ impl<'de> Deserialize<'de> for PHashable {
     }
 }
 
-impl Hashable for PHashable {
+impl<F> Hashable for PHashable <F>
+where
+    F: PrimeField + Absorb,
+{
     fn empty_leaf() -> Self {
         PHashable(F::zero())
     }
@@ -242,7 +252,7 @@ pub enum Operation<A, C> {
 }
 
 use Operation::*;
-use crate::util::F;
+//use crate::util::F;
 
 pub fn append_str<C>(x: &str, retention: Retention<C>) -> Operation<String, C> {
     Operation::Append(x.to_string(), retention)

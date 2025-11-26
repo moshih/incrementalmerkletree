@@ -387,12 +387,13 @@ mod tests {
     use super::CompleteTree;
     use crate::{
         check_append, check_checkpoint_rewind, check_rewind_remove_mark, check_root_hashes,
-        check_witnesses, compute_root_from_witness, PHashable, SipHashable, Tree, F,
+        check_witnesses, compute_root_from_witness, PHashable, SipHashable, Tree,
     };
     use ark_ff::Zero;
     use incrementalmerkletree::{Hashable, Level, Position, Retention};
     use std::convert::TryFrom;
 
+    use ark_bn254::Fr as F;
     #[test]
     fn correct_empty_root() {
         const DEPTH: u8 = 5;
@@ -413,7 +414,7 @@ mod tests {
             expected = PHashable::combine(lvl.into(), &expected, &expected);
         }
 
-        let tree = CompleteTree::<PHashable, (), DEPTH>::new(100);
+        let tree = CompleteTree::<PHashable<F>, (), DEPTH>::new(100);
         assert_eq!(tree.root(None), Some(expected));
     }
 
