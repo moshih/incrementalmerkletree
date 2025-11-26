@@ -717,7 +717,7 @@ pub mod testing {
     }
 
     impl Distribution<TestNode> for Standard {
-        fn sample<R: Rng + ?Sized>(&self, rng: &mut R) -> TestNode {
+        fn sample<R: ::rand::Rng + ?Sized>(&self, rng: &mut R) -> TestNode {
             TestNode(rng.gen())
         }
     }
