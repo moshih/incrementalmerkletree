@@ -48,14 +48,14 @@ impl<F> TreeParams<F>
 where
     F: PrimeField + Absorb,
 {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         TreeParams {
             leaf_params: gen_poseidon_params(2, false),
             two_to_one_params: gen_poseidon_params(2, false),
         }
     }
 
-    pub(crate) fn to_var(self) -> TreeParamsVar<F> {
+    pub fn to_var(self) -> TreeParamsVar<F> {
         TreeParamsVar {
             leaf_params: poseidon::constraints::CRHParametersVar {
                 parameters: self.leaf_params,
