@@ -1,7 +1,8 @@
 use crate::complete_tree::CompleteTree;
-use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig};
+use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig, PoseidonTreeConfigVar};
 use crate::util::poseidon_hash;
 use crate::{PHashable, Tree};
+use ark_crypto_primitives::merkle_tree::constraints::PathVar;
 use ark_crypto_primitives::merkle_tree::Path;
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::PrimeField;
@@ -17,6 +18,10 @@ pub type IntTreePath<F: PrimeField + Absorb> = Path<PoseidonTreeConfig<F>>;
 
 /// The root of an integer tree
 pub type IntTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
+
+/// The ZK version of an authentication path in an integer tree
+pub type IntTreePathVar<F: PrimeField + Absorb> =
+    PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>;
 
 /// A Merkle tree that represents a set of integers, represented as field elements
 #[derive(Clone)]
