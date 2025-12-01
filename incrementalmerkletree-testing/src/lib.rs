@@ -6,22 +6,21 @@ use proptest::prelude::*;
 use std::collections::BTreeSet;
 
 use ark_crypto_primitives::crh::{poseidon, CRHScheme};
-use ark_crypto_primitives::sponge::Absorb;
 use ark_crypto_primitives::sponge::poseidon::{
     find_poseidon_ark_and_mds, PoseidonConfig, PoseidonDefaultConfigEntry,
 };
+use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::{PrimeField, Zero};
 use incrementalmerkletree::{Hashable, Level, Marking, Position, Retention};
 
-use serde::{Serialize, Deserialize, Serializer, Deserializer};
-use ark_serialize::{CanonicalSerialize, CanonicalDeserialize};
+use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-
+pub mod complement_tree;
 pub mod complete_tree;
-pub mod util;
-pub mod tree_util;
 pub mod incremental_int_tree;
-pub mod incremental_complement_tree;
+pub mod tree_util;
+pub mod util;
 //
 // Traits used to permit comparison testing between tree implementations.
 //
@@ -135,7 +134,10 @@ impl Hashable for SipHashable {
 //     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/poseidon/traits.rs#L69
 // and
 //     https://github.com/arkworks-rs/crypto-primitives/blob/54b3ac24b8943fbd984863558c749997e96ff399/src/sponge/test.rs
-pub(crate) fn gen_poseidon_params<F: PrimeField + Absorb>(rate: usize, optimized_for_weights: bool) -> PoseidonConfig<F> {
+pub(crate) fn gen_poseidon_params<F: PrimeField + Absorb>(
+    rate: usize,
+    optimized_for_weights: bool,
+) -> PoseidonConfig<F> {
     let params_set = if !optimized_for_weights {
         [
             PoseidonDefaultConfigEntry::new(2, 17, 8, 31, 0),
@@ -200,13 +202,14 @@ where
         S: Serializer,
     {
         let mut bytes = Vec::new();
-        self.0.serialize_compressed(&mut bytes)
+        self.0
+            .serialize_compressed(&mut bytes)
             .map_err(serde::ser::Error::custom)?;
         bytes.serialize(serializer)
     }
 }
 
-impl<'de, F> Deserialize<'de> for PHashable <F>
+impl<'de, F> Deserialize<'de> for PHashable<F>
 where
     F: PrimeField + Absorb,
 {
@@ -215,13 +218,12 @@ where
         D: Deserializer<'de>,
     {
         let bytes = Vec::<u8>::deserialize(deserializer)?;
-        let field = F::deserialize_compressed(&bytes[..])
-            .map_err(serde::de::Error::custom)?;
+        let field = F::deserialize_compressed(&bytes[..]).map_err(serde::de::Error::custom)?;
         Ok(PHashable(field))
     }
 }
 
-impl<F> Hashable for PHashable <F>
+impl<F> Hashable for PHashable<F>
 where
     F: PrimeField + Absorb,
 {

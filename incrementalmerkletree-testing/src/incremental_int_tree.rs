@@ -9,6 +9,7 @@ use ark_ff::PrimeField;
 use ark_r1cs_std::fields::fp::FpVar;
 use incrementalmerkletree::Position;
 use incrementalmerkletree::Retention;
+use serde::{Deserialize, Serialize};
 
 /// The root of an integer tree
 pub type IntTreeRoot<F: PrimeField + Absorb> = F;
@@ -24,7 +25,7 @@ pub type IntTreePathVar<F: PrimeField + Absorb> =
     PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>;
 
 /// A Merkle tree that represents a set of integers, represented as field elements
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct IncIntTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
     pub leaves: Vec<F>,
     pub merkle_tree: CompleteTree<PHashable<F>, usize, INT_TREE_DEPTH>,

@@ -659,6 +659,7 @@ dependencies = [
  "bincode",
  "incrementalmerkletree",
  "proptest",
+ "rand",
  "serde",
  "serde_json",
 ]
