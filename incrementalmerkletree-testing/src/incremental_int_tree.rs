@@ -112,7 +112,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     /// Returns the index of the first leaf that matches the query.
     /// If none are found, output 0.
     pub fn get_leaf_index(&self, leaf: F) -> usize {
-        let mut index = 0;
+        let mut index = usize::MAX;
 
         for (idx_i, leaf_i) in self.leaves.iter().enumerate() {
             if leaf.eq(&leaf_i) {
