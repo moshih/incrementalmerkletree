@@ -58,6 +58,13 @@ pub struct RangeTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
     pub merkle_tree: PoseidonMerkleTree<F>,
     pub write_idx: usize,
 }
+
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Default for RangeTree<F, INT_TREE_DEPTH> {
+    fn default() -> Self {
+        RangeTree::<F, INT_TREE_DEPTH>::blank()
+    }
+}
+
 impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Valid for RangeTree<F, INT_TREE_DEPTH> {
     fn check(&self) -> Result<(), SerializationError> {
         // Validate that the leaves and write_idx are consistent

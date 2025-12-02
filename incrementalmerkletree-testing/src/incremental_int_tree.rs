@@ -31,6 +31,12 @@ pub struct IncIntTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
     pub merkle_tree: CompleteTree<PHashable<F>, usize, INT_TREE_DEPTH>,
 }
 
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Default for IncIntTree<F, INT_TREE_DEPTH> {
+    fn default() -> Self {
+        IncIntTree::<F, INT_TREE_DEPTH>::blank()
+    }
+}
+
 impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DEPTH> {
     pub fn current_position(&self) -> Option<Position> {
         self.merkle_tree.current_position()
