@@ -318,7 +318,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
     }
 
     /// Returns the root.
-    pub fn get_root(&self) -> F {
+    pub fn get_root(&self) -> RangeTreeRoot<F> {
         self.merkle_tree.root()
     }
 }
@@ -355,7 +355,7 @@ impl<F: PrimeField + Absorb> RangeTreePath<F> {
 impl<F: PrimeField + Absorb> RangeTreePathVar<F> {
     /// Checks whether the given nullifier occurs in the range represented by this authentication
     /// path. This proves that `x` is not in the set of observed nullifiers.
-    pub(crate) fn verify(
+    pub fn verify(
         &self,
         x: &FpVar<F>,
         root_hash_var: &RangeTreeRootVar<F>,
@@ -376,7 +376,7 @@ impl<F: PrimeField + Absorb> RangeTreePathVar<F> {
         )?;
         Ok(range_verifies_var & auth_path_verifies_var)
     }
-    pub(crate) fn is_correct_leaf(&self, x: &FpVar<F>) -> Result<Boolean<F>, SynthesisError> {
+    pub fn is_correct_leaf(&self, x: &FpVar<F>) -> Result<Boolean<F>, SynthesisError> {
         // Check a <= x < b, and then do a normal path authentication
         let ge_a = x.is_cmp_unchecked(&self.leaf.0, Ordering::Greater, true)?;
         let lt_b = x.is_cmp_unchecked(&self.leaf.1, Ordering::Less, false)?;

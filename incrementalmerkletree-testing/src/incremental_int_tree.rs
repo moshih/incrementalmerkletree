@@ -105,7 +105,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     }
 
     /// Returns the root.
-    pub fn get_root(&self) -> F {
+    pub fn get_root(&self) -> IntTreeRoot<F> {
         self.merkle_tree.root(None).unwrap().0
     }
 
