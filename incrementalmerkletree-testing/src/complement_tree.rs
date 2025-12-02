@@ -21,6 +21,7 @@ use ark_serialize::{
 use incrementalmerkletree::{Position, Retention};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
+use std::fmt;
 use std::ops::Add;
 
 /// Represents the semi-open range `[a, b)`.
@@ -62,6 +63,16 @@ pub struct RangeTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
 impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Default for RangeTree<F, INT_TREE_DEPTH> {
     fn default() -> Self {
         RangeTree::<F, INT_TREE_DEPTH>::blank()
+    }
+}
+
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> fmt::Debug for RangeTree<F, INT_TREE_DEPTH> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RangeTree")
+            .field("root", &self.merkle_tree.root())
+            .field("write_idx", &self.write_idx)
+            .field("leaves", &self.leaves)
+            .finish()
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::complement_tree::RangeTree;
 use crate::complete_tree::CompleteTree;
 use crate::tree_util::{create_auth_path_inc, PoseidonTreeConfig, PoseidonTreeConfigVar};
 use crate::util::poseidon_hash;
@@ -10,6 +11,7 @@ use ark_r1cs_std::fields::fp::FpVar;
 use incrementalmerkletree::Position;
 use incrementalmerkletree::Retention;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// The root of an integer tree
 pub type IntTreeRoot<F: PrimeField + Absorb> = F;
@@ -34,6 +36,17 @@ pub struct IncIntTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
 impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Default for IncIntTree<F, INT_TREE_DEPTH> {
     fn default() -> Self {
         IncIntTree::<F, INT_TREE_DEPTH>::blank()
+    }
+}
+
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> fmt::Debug
+    for IncIntTree<F, INT_TREE_DEPTH>
+{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("IncIntTree")
+            .field("root", &self.get_root())
+            .field("leaves", &self.leaves)
+            .finish()
     }
 }
 
