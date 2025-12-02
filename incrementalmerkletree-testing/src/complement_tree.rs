@@ -15,7 +15,9 @@ use ark_r1cs_std::boolean::Boolean;
 use ark_r1cs_std::fields::fp::FpVar;
 use ark_relations::ns;
 use ark_relations::r1cs::{Namespace, SynthesisError};
-use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
+use ark_serialize::{
+    CanonicalDeserialize, CanonicalSerialize, Read, SerializationError, Valid, Write,
+};
 use incrementalmerkletree::{Position, Retention};
 use std::borrow::Borrow;
 use std::cmp::Ordering;
@@ -56,6 +58,82 @@ pub struct RangeTree<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> {
     pub merkle_tree: PoseidonMerkleTree<F>,
     pub write_idx: usize,
 }
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> Valid for RangeTree<F, INT_TREE_DEPTH> {
+    fn check(&self) -> Result<(), SerializationError> {
+        // Validate that the leaves and write_idx are consistent
+        if self.write_idx > self.leaves.len() {
+            return Err(SerializationError::InvalidData);
+        }
+        Ok(())
+    }
+}
+
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> CanonicalSerialize
+    for RangeTree<F, INT_TREE_DEPTH>
+{
+    fn serialize_with_mode<W: Write>(
+        &self,
+        mut writer: W,
+        compress: ark_serialize::Compress,
+    ) -> Result<(), SerializationError> {
+        // Serialize the leaves
+        self.leaves.serialize_with_mode(&mut writer, compress)?;
+
+        // Serialize the write_idx
+        self.write_idx.serialize_with_mode(&mut writer, compress)?;
+
+        Ok(())
+    }
+
+    fn serialized_size(&self, compress: ark_serialize::Compress) -> usize {
+        self.leaves.serialized_size(compress) + self.write_idx.serialized_size(compress)
+    }
+}
+
+impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> CanonicalDeserialize
+    for RangeTree<F, INT_TREE_DEPTH>
+{
+    fn deserialize_with_mode<R: Read>(
+        mut reader: R,
+        compress: ark_serialize::Compress,
+        validate: ark_serialize::Validate,
+    ) -> Result<Self, SerializationError> {
+        // Deserialize the leaves
+        let leaves: Vec<RangeTreeLeaf<F>> =
+            CanonicalDeserialize::deserialize_with_mode(&mut reader, compress, validate)?;
+
+        // Deserialize the write_idx
+        let write_idx: usize =
+            CanonicalDeserialize::deserialize_with_mode(&mut reader, compress, validate)?;
+
+        // Reconstruct the Merkle tree from the leaves
+        let TreeParams {
+            leaf_params,
+            two_to_one_params,
+        } = TreeParams::new();
+
+        let mut leaf_hashes = Vec::new();
+        for entry in leaves.iter() {
+            leaf_hashes.push([leaf_hash(&[entry.0, entry.1])]);
+        }
+
+        let merkle_tree = MerkleTree::new(&leaf_params, &two_to_one_params, leaf_hashes)
+            .map_err(|_| SerializationError::InvalidData)?;
+
+        let range_tree = RangeTree {
+            leaves,
+            merkle_tree,
+            write_idx,
+        };
+
+        // Validate if required
+        if validate == ark_serialize::Validate::Yes {
+            range_tree.check()?;
+        }
+
+        Ok(range_tree)
+    }
+}
 
 impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEPTH> {
     /// Returns the number of leaves in this tree. This is always a power of two.
@@ -84,16 +162,18 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
 
         // Every leaf is all zeros
         let empty_range = (F::zero(), F::zero());
-        let empty_range_hash = leaf_hash(&[empty_range.0, empty_range.1]);
 
-        // Make a tree with the given leaves and leaf digests
+        // Make a tree with the given leaves
         let num_leaves = 1 << (INT_TREE_DEPTH - 1);
         let leaves = vec![empty_range; num_leaves];
-        let leaf_hashes = vec![empty_range_hash; num_leaves];
 
-        let merkle_tree =
-            MerkleTree::new_with_leaf_digest(&leaf_params, &two_to_one_params, leaf_hashes)
-                .unwrap();
+        // Compute the hashes and make a new tree (same as new() method)
+        let mut leaf_hashes = Vec::new();
+        for entry in leaves.iter() {
+            leaf_hashes.push([leaf_hash(&[entry.0, entry.1])]);
+        }
+
+        let merkle_tree = MerkleTree::new(&leaf_params, &two_to_one_params, leaf_hashes).unwrap();
 
         RangeTree {
             leaves,
@@ -661,9 +741,11 @@ pub fn complement_ranges<F: PrimeField + Absorb>(mut fps_ptr: &Vec<F>) -> Vec<Fp
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::complement_tree::complement_ranges;
     use ark_bn254::Fr as F;
     use ark_ff::Zero;
+    use ark_serialize::{CanonicalDeserialize, CanonicalSerialize};
     use ark_std::{rand, rand::Rng, test_rng, UniformRand};
 
     #[test]
@@ -689,5 +771,214 @@ mod tests {
                 assert_eq!(list[i], complement_ranges[i].1);
             }
         }
+    }
+
+    #[test]
+    fn test_serialize_deserialize_blank_tree() {
+        const NUL_HEIGHT: u8 = 4;
+
+        // Create a blank tree
+        let tree: RangeTree<F, NUL_HEIGHT> = RangeTree::blank();
+
+        // Serialize
+        let mut bytes = Vec::new();
+        tree.serialize_compressed(&mut bytes).unwrap();
+
+        // Deserialize
+        let restored: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_compressed(&bytes[..]).unwrap();
+
+        // Verify
+        assert_eq!(tree.leaves, restored.leaves);
+        assert_eq!(tree.write_idx, restored.write_idx);
+        assert_eq!(tree.get_root(), restored.get_root());
+        assert_eq!(tree.num_leaves(), restored.num_leaves());
+    }
+
+    #[test]
+    fn test_serialize_deserialize_tree_with_values() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 4;
+        let nul_list_size = 2 << NUL_HEIGHT;
+        let mut nul_list: Vec<F> = Vec::new();
+
+        // Create a random list of nullifiers
+        for _ in 0..nul_list_size {
+            nul_list.push(F::rand(&mut rng));
+        }
+
+        // Create tree
+        let tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list.clone());
+        let original_root = tree.get_root();
+        let original_leaves = tree.leaves.clone();
+        let original_write_idx = tree.write_idx;
+
+        // Serialize
+        let mut bytes = Vec::new();
+        tree.serialize_compressed(&mut bytes).unwrap();
+
+        println!("Serialized size: {} bytes", bytes.len());
+
+        // Deserialize
+        let restored: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_compressed(&bytes[..]).unwrap();
+
+        // Verify basic properties
+        assert_eq!(original_leaves, restored.leaves);
+        assert_eq!(original_write_idx, restored.write_idx);
+        assert_eq!(original_root, restored.get_root());
+        assert_eq!(tree.num_leaves(), restored.num_leaves());
+        assert_eq!(tree.num_written_leaves(), restored.num_written_leaves());
+    }
+
+    #[test]
+    fn test_serialize_deserialize_auth_paths() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 4;
+        let nul_list_size = 8;
+        let mut nul_list: Vec<F> = Vec::new();
+
+        // Create a smaller random list
+        for _ in 0..nul_list_size {
+            nul_list.push(F::rand(&mut rng));
+        }
+
+        // Create tree
+        let tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list.clone());
+        let original_root = tree.get_root();
+
+        // Serialize and deserialize
+        let mut bytes = Vec::new();
+        tree.serialize_compressed(&mut bytes).unwrap();
+        let restored: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_compressed(&bytes[..]).unwrap();
+
+        // Test that auth paths work correctly on restored tree
+        for idx in 0..tree.num_written_leaves() {
+            let original_path = tree.auth_path(idx);
+            let restored_path = restored.auth_path(idx);
+
+            // Verify leaves match
+            assert_eq!(original_path.leaf, restored_path.leaf);
+
+            // Verify paths authenticate against the same root
+            if original_path
+                .leaf
+                .0
+                .add(&F::one())
+                .le(&original_path.leaf.1)
+            {
+                let val_in_range = original_path.leaf.0.add(&F::one());
+
+                assert!(original_path.verify(&val_in_range, &original_root));
+                assert!(restored_path.verify(&val_in_range, &original_root));
+            }
+        }
+    }
+
+    #[test]
+    fn test_serialize_deserialize_uncompressed() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 3;
+        let mut nul_list: Vec<F> = vec![F::rand(&mut rng), F::rand(&mut rng), F::rand(&mut rng)];
+
+        let tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list);
+        let original_root = tree.get_root();
+
+        // Serialize uncompressed
+        let mut bytes = Vec::new();
+        tree.serialize_uncompressed(&mut bytes).unwrap();
+
+        // Deserialize uncompressed
+        let restored: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_uncompressed(&bytes[..]).unwrap();
+
+        assert_eq!(tree.leaves, restored.leaves);
+        assert_eq!(tree.write_idx, restored.write_idx);
+        assert_eq!(original_root, restored.get_root());
+    }
+
+    #[test]
+    fn test_serialize_deserialize_with_updates() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 5;
+        let mut nul_list: Vec<F> = Vec::new();
+
+        // Create initial list
+        for _ in 0..4 {
+            nul_list.push(F::rand(&mut rng));
+        }
+
+        // Create and modify tree
+        let mut tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list.clone());
+
+        // Perform some updates
+        let new_leaf = (F::from(100u64), F::from(200u64));
+        tree.update_leaf(0, new_leaf);
+
+        let original_root = tree.get_root();
+        let original_leaves = tree.leaves.clone();
+
+        // Serialize
+        let mut bytes = Vec::new();
+        tree.serialize_compressed(&mut bytes).unwrap();
+
+        // Deserialize
+        let restored: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_compressed(&bytes[..]).unwrap();
+
+        // Verify the update persisted
+        assert_eq!(original_leaves, restored.leaves);
+        assert_eq!(restored.get_leaf(0), new_leaf);
+        assert_eq!(original_root, restored.get_root());
+    }
+
+    #[test]
+    fn test_multiple_serialize_deserialize_cycles() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 3;
+        let nul_list: Vec<F> = vec![F::rand(&mut rng), F::rand(&mut rng)];
+
+        let mut tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list);
+        let original_root = tree.get_root();
+
+        // Multiple serialization cycles
+        for _ in 0..3 {
+            let mut bytes = Vec::new();
+            tree.serialize_compressed(&mut bytes).unwrap();
+            tree = RangeTree::deserialize_compressed(&bytes[..]).unwrap();
+        }
+
+        // Root should remain unchanged
+        assert_eq!(original_root, tree.get_root());
+    }
+
+    #[test]
+    fn test_serialized_size() {
+        let mut rng = ark_std::test_rng();
+        const NUL_HEIGHT: u8 = 4;
+        let nul_list: Vec<F> = vec![F::rand(&mut rng), F::rand(&mut rng), F::rand(&mut rng)];
+
+        let tree: RangeTree<F, NUL_HEIGHT> = RangeTree::new(nul_list);
+
+        // Check that serialized_size matches actual size
+        let reported_size = tree.serialized_size(ark_serialize::Compress::Yes);
+
+        let mut bytes = Vec::new();
+        tree.serialize_compressed(&mut bytes).unwrap();
+        let actual_size = bytes.len();
+
+        assert_eq!(reported_size, actual_size);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_deserialize_invalid_data() {
+        const NUL_HEIGHT: u8 = 4;
+
+        // Try to deserialize garbage data
+        let invalid_bytes = vec![0u8; 10];
+        let _: RangeTree<F, NUL_HEIGHT> =
+            RangeTree::deserialize_compressed(&invalid_bytes[..]).unwrap();
     }
 }
