@@ -45,6 +45,7 @@ pub type RangeTreeLeafVar<F: PrimeField + Absorb> = (FpVar<F>, FpVar<F>);
 
 pub type RangeTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
 
+#[derive(Clone)]
 pub struct RangeTreePathVar<F: PrimeField + Absorb> {
     pub(crate) leaf: RangeTreeLeafVar<F>,
     pub(crate) path: PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>,
