@@ -24,6 +24,8 @@ use std::cmp::Ordering;
 use std::fmt;
 use std::ops::Add;
 
+const DEFAULT_TREE_DEPTH: u8 = 8;
+
 /// Represents the semi-open range `[a, b)`.
 pub type FpRange<F: PrimeField + Absorb> = (F, F);
 /// The leaf of a range tree. This is just an `FpRange`, i.e., a semi-open range `[a, b)`.
@@ -37,6 +39,19 @@ pub type RangeTreeRoot<F: PrimeField + Absorb> = F;
 pub struct RangeTreePath<F: PrimeField + Absorb> {
     pub leaf: RangeTreeLeaf<F>,
     pub path: Path<PoseidonTreeConfig<F>>,
+}
+
+impl<F: PrimeField + Absorb> Default for RangeTreePath<F> {
+    fn default() -> Self {
+        Self {
+            leaf: (F::zero(), F::zero()),
+            path: Path {
+                leaf_sibling_hash: F::zero(),
+                auth_path: vec![F::zero(); DEFAULT_TREE_DEPTH as usize - 1], //TODO: is this correct?
+                leaf_index: 0,
+            },
+        }
+    }
 }
 
 // Now the ZK definitions
