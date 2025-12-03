@@ -141,7 +141,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
 
         assert!(Tree::append(
             &mut self.merkle_tree,
-            PHashable(value),
+            PHashable(poseidon_hash(&[value])),
             Retention::Marked,
         ));
     }
