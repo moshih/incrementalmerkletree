@@ -234,8 +234,7 @@ mod tests {
         for i in 0u64..(1 << DEPTH_TO_ADD) {
             let position = Position::try_from(i).unwrap();
 
-            let idk = inc_int_tree.merkle_tree.checkpoint_count();
-            let path: Vec<PHashable<F>> = inc_int_tree.merkle_tree.witness(position, idk).unwrap();
+            let path: Vec<PHashable<F>> = inc_int_tree.merkle_tree.witness(position, 0).unwrap();
 
             assert_eq!(
                 compute_root_from_witness(PHashable(poseidon_hash(&[F::from(i)])), position, &path),
