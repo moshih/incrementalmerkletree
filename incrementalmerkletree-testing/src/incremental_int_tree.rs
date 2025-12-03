@@ -18,7 +18,7 @@ pub type IntTreeRoot<F: PrimeField + Absorb> = F;
 
 /// The authentication path in an integer tree
 #[derive(Clone)]
-pub struct IntTreePath<F: PrimeField + Absorb = ark_bn254::Fr>(pub Path<PoseidonTreeConfig<F>>);
+pub struct IntTreePath<F: PrimeField + Absorb>(pub Path<PoseidonTreeConfig<F>>);
 
 const DEFAULT_TREE_DEPTH: u8 = 8;
 
@@ -38,8 +38,12 @@ impl<F: PrimeField + Absorb> Default for IntTreePath<F> {
 pub type IntTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
 
 /// The ZK version of an authentication path in an integer tree
-pub type IntTreePathVar<F: PrimeField + Absorb> =
-    PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>;
+//pub type IntTreePathVar<F: PrimeField + Absorb> =
+//    PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>;
+#[derive(Clone)]
+pub struct IntTreePathVar<F: PrimeField + Absorb>(
+    pub PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>,
+);
 
 /// A Merkle tree that represents a set of integers, represented as field elements
 #[derive(Clone, Serialize, Deserialize)]
