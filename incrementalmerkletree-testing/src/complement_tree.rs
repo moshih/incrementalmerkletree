@@ -187,7 +187,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
     }
 
     /// Makes a Merkle tree of the given height, where all the leaves are the empty interval
-    /// `[0, 0)`.
+    /// `[0, 0)` except teh first.
     pub fn blank() -> Self {
         let TreeParams {
             leaf_params,
@@ -196,10 +196,12 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
 
         // Every leaf is all zeros
         let empty_range = (F::zero(), F::zero());
+        let first_range = (F::zero(), F::zero()-F::one());
 
         // Make a tree with the given leaves
         let num_leaves = 1 << (INT_TREE_DEPTH - 1);
-        let leaves = vec![empty_range; num_leaves];
+        let mut leaves = vec![empty_range; num_leaves];
+        leaves[0] = first_range;
 
         // Compute the hashes and make a new tree (same as new() method)
         let mut leaf_hashes = Vec::new();
