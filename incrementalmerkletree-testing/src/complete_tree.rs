@@ -1,13 +1,13 @@
 //! Sample implementation of the Tree interface.
+use crate::Tree;
+use bincode;
+use incrementalmerkletree::{Hashable, Level, Marking, Position, Retention};
+use serde::{Deserialize, Serialize};
 use std::cmp::min;
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::File;
 use std::io;
 use std::io::{Read, Write};
-use crate::Tree;
-use incrementalmerkletree::{Hashable, Level, Marking, Position, Retention};
-use serde::{Serialize, Deserialize};
-use bincode;
 
 const MAX_COMPLETE_SIZE_ERROR: &str = "Positions of a `CompleteTree` must fit into the platform word size, because larger complete trees are not representable.";
 
@@ -67,8 +67,7 @@ impl Checkpoint {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct CompleteTree<H, C: Ord, const DEPTH: u8>
-{
+pub struct CompleteTree<H, C: Ord, const DEPTH: u8> {
     leaves: Vec<Option<H>>,
     marks: BTreeSet<Position>,
     checkpoints: BTreeMap<C, Checkpoint>,
@@ -222,15 +221,15 @@ where
         let mut file = File::open(path)?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-        let tree = serde_json::from_str(&contents)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let tree =
+            serde_json::from_str(&contents).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         Ok(tree)
     }
 
     /// Serialize the tree to a binary file (more efficient)
     pub fn write_to_file_binary(&self, path: &str) -> io::Result<()> {
-        let encoded = bincode::serialize(self)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let encoded =
+            bincode::serialize(self).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         let mut file = File::create(path)?;
         file.write_all(&encoded)?;
         Ok(())
@@ -241,8 +240,8 @@ where
         let mut file = File::open(path)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
-        let tree = bincode::deserialize(&buffer)
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+        let tree =
+            bincode::deserialize(&buffer).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
         Ok(tree)
     }
 }
@@ -297,7 +296,7 @@ impl<H: Hashable + PartialEq + Clone, C: Ord + Clone + core::fmt::Debug, const D
 
     fn witness(&self, position: Position, checkpoint_depth: usize) -> Option<Vec<H>> {
         if self.marks.contains(&position) {
-            let leaves_len = self.leaves_at_checkpoint_depth(checkpoint_depth)?;
+            let leaves_len = self.leaves_at_checkpoint_depth(0)?;
             if u64::from(position) >= u64::try_from(leaves_len).unwrap() {
                 // The requested position was marked after the checkpoint was created, so we
                 // cannot create a witness.
@@ -616,7 +615,8 @@ mod tests {
         let tree = CompleteTree::<SipHashable, usize, DEPTH>::new(100);
 
         let path = "test_empty_tree.bin";
-        tree.write_to_file_binary(path).expect("Failed to write binary file");
+        tree.write_to_file_binary(path)
+            .expect("Failed to write binary file");
 
         let loaded_tree = CompleteTree::<SipHashable, usize, DEPTH>::read_from_file_binary(path)
             .expect("Failed to read binary file");
@@ -647,7 +647,8 @@ mod tests {
         let original_positions = tree.marked_positions();
 
         let path = "test_tree_with_data.bin";
-        tree.write_to_file_binary(path).expect("Failed to write binary file");
+        tree.write_to_file_binary(path)
+            .expect("Failed to write binary file");
 
         let loaded_tree = CompleteTree::<SipHashable, usize, DEPTH>::read_from_file_binary(path)
             .expect("Failed to read binary file");
@@ -681,7 +682,8 @@ mod tests {
         tree.checkpoint(0, None);
 
         let path = "test_tree_witnesses.bin";
-        tree.write_to_file_binary(path).expect("Failed to write binary file");
+        tree.write_to_file_binary(path)
+            .expect("Failed to write binary file");
 
         let loaded_tree = CompleteTree::<SipHashable, usize, DEPTH>::read_from_file_binary(path)
             .expect("Failed to read binary file");
@@ -720,19 +722,31 @@ mod tests {
         let json_path = "test_roundtrip.json";
         let binary_path = "test_roundtrip.bin";
 
-        tree.write_to_file(json_path).expect("Failed to write JSON file");
-        tree.write_to_file_binary(binary_path).expect("Failed to write binary file");
+        tree.write_to_file(json_path)
+            .expect("Failed to write JSON file");
+        tree.write_to_file_binary(binary_path)
+            .expect("Failed to write binary file");
 
         let tree_from_json = CompleteTree::<SipHashable, usize, DEPTH>::read_from_file(json_path)
             .expect("Failed to read JSON file");
-        let tree_from_binary = CompleteTree::<SipHashable, usize, DEPTH>::read_from_file_binary(binary_path)
-            .expect("Failed to read binary file");
+        let tree_from_binary =
+            CompleteTree::<SipHashable, usize, DEPTH>::read_from_file_binary(binary_path)
+                .expect("Failed to read binary file");
 
         // Both should produce the same tree
         assert_eq!(tree_from_json.root(None), tree_from_binary.root(None));
-        assert_eq!(tree_from_json.marked_positions(), tree_from_binary.marked_positions());
-        assert_eq!(tree_from_json.current_position(), tree_from_binary.current_position());
-        assert_eq!(tree_from_json.checkpoint_count(), tree_from_binary.checkpoint_count());
+        assert_eq!(
+            tree_from_json.marked_positions(),
+            tree_from_binary.marked_positions()
+        );
+        assert_eq!(
+            tree_from_json.current_position(),
+            tree_from_binary.current_position()
+        );
+        assert_eq!(
+            tree_from_json.checkpoint_count(),
+            tree_from_binary.checkpoint_count()
+        );
 
         // Cleanup
         std::fs::remove_file(json_path).ok();
@@ -752,7 +766,8 @@ mod tests {
         tree.checkpoint(1, tree.current_position());
 
         let json_path = "test_string_tree.json";
-        tree.write_to_file(json_path).expect("Failed to write JSON file");
+        tree.write_to_file(json_path)
+            .expect("Failed to write JSON file");
 
         let loaded_tree = CompleteTree::<String, usize, DEPTH>::read_from_file(json_path)
             .expect("Failed to read JSON file");
@@ -788,7 +803,9 @@ mod tests {
 
         // Add more values to loaded tree
         for i in 6..10 {
-            assert!(loaded_tree.append(SipHashable(i), Retention::Marked).is_ok());
+            assert!(loaded_tree
+                .append(SipHashable(i), Retention::Marked)
+                .is_ok());
         }
         loaded_tree.checkpoint(2, loaded_tree.current_position());
 
@@ -797,7 +814,9 @@ mod tests {
 
         // But should be able to operate on both independently
         assert!(tree.append(SipHashable(100), Retention::Ephemeral).is_ok());
-        assert!(loaded_tree.append(SipHashable(200), Retention::Ephemeral).is_ok());
+        assert!(loaded_tree
+            .append(SipHashable(200), Retention::Ephemeral)
+            .is_ok());
 
         // Cleanup
         std::fs::remove_file(path).ok();

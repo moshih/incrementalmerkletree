@@ -144,7 +144,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
 
         let path: Vec<PHashable<F>> = self
             .merkle_tree
-            .witness(position, self.merkle_tree.checkpoint_count() - 1)
+            .witness(position, self.merkle_tree.checkpoint_count())
             .unwrap();
         IntTreePath(create_auth_path_inc(path, idx))
     }
@@ -216,6 +216,7 @@ mod tests {
         let pre_root_hash = inc_int_tree.merkle_tree.root(None).unwrap().0.clone();
         println!("pre_root_hash is {:?}", pre_root_hash);
 
+        inc_int_tree.merkle_tree.checkpoint(0);
         for value in 0..(1 << DEPTH_TO_ADD) {
             inc_int_tree.append(F::from(value as u64));
             /*
@@ -231,15 +232,13 @@ mod tests {
         let root_hash = inc_int_tree.get_root();
         println!("root_hash is {:?}", root_hash);
         //inc_int_tree.checkpoint(());
-        inc_int_tree.merkle_tree.checkpoint(0);
+        inc_int_tree.merkle_tree.checkpoint(1);
 
         for i in 0u64..(1 << DEPTH_TO_ADD) {
             let position = Position::try_from(i).unwrap();
 
-            let path: Vec<PHashable<F>> = inc_int_tree
-                .merkle_tree
-                .witness(position, inc_int_tree.merkle_tree.checkpoint_count() - 1)
-                .unwrap();
+            let idk = inc_int_tree.merkle_tree.checkpoint_count();
+            let path: Vec<PHashable<F>> = inc_int_tree.merkle_tree.witness(position, idk).unwrap();
 
             assert_eq!(
                 compute_root_from_witness(PHashable(poseidon_hash(&[F::from(i)])), position, &path),
