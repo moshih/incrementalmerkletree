@@ -109,7 +109,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
 
     /// Makes a Merkle tree of the given height
     pub fn blank() -> Self {
-        let merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
+        let merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(1024);
 
         IncIntTree {
             leaves: vec![],
@@ -121,7 +121,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     pub fn new(values: &[F]) -> Self {
         // Need to cast the ints to &[F] because that's technically the leaf type of the tree
         let leaves = values.to_vec();
-        let mut merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(100);
+        let mut merkle_tree = CompleteTree::<PHashable<F>, usize, INT_TREE_DEPTH>::new(1024);
 
         for value in values {
             Tree::append(
@@ -141,7 +141,11 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     /// **Panics:** if `idx >= self.num_leaves()`.
     pub fn auth_path(&self, idx: usize) -> IntTreePath<F> {
         let position = Position::try_from(idx).unwrap();
-        let path: Vec<PHashable<F>> = self.merkle_tree.witness(position, 0).unwrap();
+
+        let path: Vec<PHashable<F>> = self
+            .merkle_tree
+            .witness(position, self.merkle_tree.checkpoint_count() - 1)
+            .unwrap();
         IntTreePath(create_auth_path_inc(path, idx))
     }
 
@@ -231,7 +235,11 @@ mod tests {
 
         for i in 0u64..(1 << DEPTH_TO_ADD) {
             let position = Position::try_from(i).unwrap();
-            let path: Vec<PHashable<F>> = inc_int_tree.merkle_tree.witness(position, 0).unwrap();
+
+            let path: Vec<PHashable<F>> = inc_int_tree
+                .merkle_tree
+                .witness(position, inc_int_tree.merkle_tree.checkpoint_count() - 1)
+                .unwrap();
 
             assert_eq!(
                 compute_root_from_witness(PHashable(poseidon_hash(&[F::from(i)])), position, &path),
