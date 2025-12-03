@@ -196,7 +196,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
 
         // Every leaf is all zeros
         let empty_range = (F::zero(), F::zero());
-        let first_range = (F::zero(), F::zero()-F::one());
+        let first_range = (F::zero(), F::zero() - F::one());
 
         // Make a tree with the given leaves
         let num_leaves = 1 << (INT_TREE_DEPTH - 1);
@@ -300,9 +300,11 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> RangeTree<F, INT_TREE_DEP
             // do nothing, value already excluded
         } else {
             // case3: value is in the interval
+            let old_randge1 = range_to_update.1;
             range_to_update.1 = value;
             self.update_leaf(idx_to_update, range_to_update);
-            let new_range = (value + F::one(), range_to_update.1);
+            let new_range = (value + F::one(), old_randge1);
+            self.write_idx += 1;
             self.update_leaf(self.write_idx, new_range);
             self.write_idx += 1;
         }
