@@ -17,7 +17,21 @@ use std::fmt;
 pub type IntTreeRoot<F: PrimeField + Absorb> = F;
 
 /// The authentication path in an integer tree
-pub type IntTreePath<F: PrimeField + Absorb> = Path<PoseidonTreeConfig<F>>;
+pub struct IntTreePath<F: PrimeField + Absorb = ark_bn254::Fr>(pub Path<PoseidonTreeConfig<F>>);
+
+const DEFAULT_TREE_DEPTH: u8 = 8;
+
+impl<F: PrimeField + Absorb> Default for IntTreePath<F> {
+    fn default() -> Self {
+        Self {
+            0: Path {
+                leaf_sibling_hash: F::zero(),
+                auth_path: vec![F::zero(); DEFAULT_TREE_DEPTH as usize - 1], //TODO: is this correct?
+                leaf_index: 0,
+            },
+        }
+    }
+}
 
 /// The root of an integer tree
 pub type IntTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
@@ -101,7 +115,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     pub fn auth_path(&self, idx: usize) -> IntTreePath<F> {
         let position = Position::try_from(idx).unwrap();
         let path: Vec<PHashable<F>> = self.merkle_tree.witness(position, 0).unwrap();
-        create_auth_path_inc(path, idx)
+        IntTreePath(create_auth_path_inc(path, idx))
     }
 
     /// Returns the root.
