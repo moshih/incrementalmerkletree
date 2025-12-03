@@ -7,10 +7,14 @@ use ark_crypto_primitives::merkle_tree::constraints::PathVar;
 use ark_crypto_primitives::merkle_tree::Path;
 use ark_crypto_primitives::sponge::Absorb;
 use ark_ff::PrimeField;
+use ark_r1cs_std::alloc::{AllocVar, AllocationMode};
 use ark_r1cs_std::fields::fp::FpVar;
+use ark_relations::ns;
+use ark_relations::r1cs::{Namespace, SynthesisError};
 use incrementalmerkletree::Position;
 use incrementalmerkletree::Retention;
 use serde::{Deserialize, Serialize};
+use std::borrow::Borrow;
 use std::fmt;
 
 /// The root of an integer tree
@@ -44,6 +48,24 @@ pub type IntTreeRootVar<F: PrimeField + Absorb> = FpVar<F>;
 pub struct IntTreePathVar<F: PrimeField + Absorb>(
     pub PathVar<PoseidonTreeConfig<F>, F, PoseidonTreeConfigVar>,
 );
+
+impl<F: PrimeField + Absorb> AllocVar<IntTreePath<F>, F> for IntTreePathVar<F> {
+    fn new_variable<A: Borrow<IntTreePath<F>>>(
+        cs: impl Into<Namespace<F>>,
+        f: impl FnOnce() -> Result<A, SynthesisError>,
+        mode: AllocationMode,
+    ) -> Result<Self, SynthesisError> {
+        let ns = cs.into();
+        let cs = ns.cs();
+        let res = f();
+        res.and_then(|rec| {
+            let rec = rec.borrow();
+            let path_var = PathVar::new_variable(ns!(cs, "path_var"), || Ok(rec.clone().0), mode)?;
+
+            Ok(Self { 0: path_var })
+        })
+    }
+}
 
 /// A Merkle tree that represents a set of integers, represented as field elements
 #[derive(Clone, Serialize, Deserialize)]
