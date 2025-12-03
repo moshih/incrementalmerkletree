@@ -21,7 +21,7 @@ use std::fmt;
 pub type IntTreeRoot<F: PrimeField + Absorb> = F;
 
 /// The authentication path in an integer tree
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct IntTreePath<F: PrimeField + Absorb>(pub Path<PoseidonTreeConfig<F>>);
 
 const DEFAULT_TREE_DEPTH: u8 = 8;
