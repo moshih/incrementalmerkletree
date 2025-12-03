@@ -142,10 +142,7 @@ impl<F: PrimeField + Absorb, const INT_TREE_DEPTH: u8> IncIntTree<F, INT_TREE_DE
     pub fn auth_path(&self, idx: usize) -> IntTreePath<F> {
         let position = Position::try_from(idx).unwrap();
 
-        let path: Vec<PHashable<F>> = self
-            .merkle_tree
-            .witness(position, self.merkle_tree.checkpoint_count())
-            .unwrap();
+        let path: Vec<PHashable<F>> = self.merkle_tree.witness(position, 0).unwrap();
         IntTreePath(create_auth_path_inc(path, idx))
     }
 
